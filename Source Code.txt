@@ -1,0 +1,192 @@
+//RfID
+#include "SPI.h"
+#include "MFRC522.h"
+
+//LCD
+#include <LiquidCrystal.h>
+
+//MLX_MLX90614
+#include <Wire.h>
+#include <Adafruit_MLX90614.h>
+
+//Servo
+#include<Servo.h>
+Servo Myservo;
+int pos = 0;
+//Myservo.write(pos);
+
+//RfID
+const int pinRST = 9;
+const int pinSDA = 10;
+String uidString;
+String std_1 = "179 107 253 64";
+
+//LCD
+const int rs = 7, en = 6, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+//RfID
+MFRC522 rfid(pinSDA, pinRST);
+
+//MLX_MLX90614
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
+
+//Buzzer
+const int buzzer = 8;
+
+void setup() {
+  //RfID
+  SPI.begin();
+  rfid.PCD_Init();
+  Serial.begin(9600);
+
+  //LCD
+  lcd.begin(16, 2);
+
+  //MLX_MLX90614
+  mlx.begin();
+
+  //Buzzer
+  pinMode(buzzer, OUTPUT);
+  //RED
+  pinMode(A2, OUTPUT);
+  //Green
+  pinMode(A3, OUTPUT);
+  //Yellow
+  pinMode(A0, OUTPUT);
+
+  //Servo
+  Myservo.attach(A1);
+}
+
+void loop() {
+  Myservo.write(0);
+
+  //RfID
+  if (rfid.PICC_IsNewCardPresent()) {
+    readRFID();
+  }
+  delay(1000);
+}
+
+void readRFID() {
+  rfid.PICC_ReadCardSerial();
+
+  Serial.print("Tag UID: ");
+  uidString = String(rfid.uid.uidByte[0]) + " " + String(rfid.uid.uidByte[1]) + " " +
+              String(rfid.uid.uidByte[2]) + " " + String(rfid.uid.uidByte[3]);
+
+  if (uidString == std_1)
+  {
+    Serial.println(uidString);
+    Serial.println();
+    //LCD
+    lcd.setCursor(0, 0);
+    lcd.print("Welcome");
+    lcd.setCursor(0, 1);
+    lcd.print("Safiya.");
+
+    //MLX_MLX90614
+    int temp = MLX();
+    //lcd.setCursor(0, 0);
+    //lcd.print(temp);
+    //delay(2000);
+
+    if (temp > 101)
+    {
+      for (pos = 0; pos <= 140; pos += 5) {
+        Myservo.write(pos);
+        delay(15);
+      }
+      //LCD
+      delay(1000);
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(temp);
+      lcd.setCursor(3, 0);
+      lcd.print((char)223);
+      lcd.setCursor(0, 1);
+      lcd.print("Alarming temperature!");
+      for (int k = 0; k < 5; k++)
+      {
+        //Buzzer
+        tone(buzzer, 1000);
+        digitalWrite(A2, HIGH);
+        delay(1000);
+        noTone(buzzer);
+        digitalWrite(A2, LOW);
+        delay(1000);
+      }
+      //delay(2000);
+      lcd.clear();
+      //delay(2000);
+      for (pos = 140; pos >= 0; pos -= 5 ) {
+        Myservo.write(pos);
+        delay(15);
+      }
+      //delay(5000);
+
+    }
+    else
+    {
+      for (pos = 0; pos <= 140; pos += 5) {
+        Myservo.write(pos);
+        delay(15);
+      }
+      delay(500);
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(temp);
+      lcd.setCursor(3, 0);
+      lcd.print((char)223);
+      lcd.setCursor(0, 1);
+      lcd.print("Have a good day");
+      digitalWrite(A3, HIGH);
+      delay(3000);
+      for (pos = 140; pos >= 0; pos -= 5 ) {
+        Myservo.write(pos);
+        delay(15);
+      }
+      lcd.clear();
+      digitalWrite(A3, LOW);
+
+      //delay(5000);
+    }
+
+
+
+  }
+  else
+  {
+    Serial.println("Sorry");
+    Serial.println("You can not in");
+    Serial.println();
+    //LCD
+    lcd.setCursor(0, 0);
+    lcd.print("Sorry Student");
+    lcd.setCursor(0, 1);
+    lcd.print("You can not in");
+    digitalWrite(A0, HIGH);
+    delay(4000);
+    digitalWrite(A0, LOW);
+    lcd.clear();
+
+  }
+
+
+
+}
+
+
+//MLX_MLX90614
+int MLX()
+{
+  int temp = mlx.readObjectTempF() - 45;
+  Serial.print("*F\tObject = ");
+  Serial.print(temp);
+  Serial.println("F");
+  Serial.println();
+
+  return temp;
+
+}
